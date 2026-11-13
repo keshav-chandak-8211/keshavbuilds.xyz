@@ -6,721 +6,1283 @@
   <meta name="theme-color" content="#09090b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>RSVP Speed Reader | keshavbuilds.xyz</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <style>
-    :root {
-      --bg: #09090b;
-      --surface: #121215;
-      --surface-hover: #1c1c21;
-      --border: #27272a;
-      --text: #f4f4f5;
-      --muted: #a1a1aa;
-      --accent: #ef4444;
-      --accent-glow: rgba(239, 68, 68, 0.25);
-      --primary: #3b82f6;
-    }
+  <title>RSVP Speed Reader — 2,000 WPM</title>
 
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- PDF.js 3.11.174 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Dynamic PWA Manifest Link (populated via inline script) -->
+  <link id="pwa-manifest" rel="manifest" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            oled: '#09090b',
+            card: '#121216',
+            cardHover: '#18181d',
+            borderSubtle: '#27272a',
+            orp: '#ef4444',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Base OLED styling & custom scrollbars */
     * {
       box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      background-color: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: 'Inter', system-ui, sans-serif;
       overflow-x: hidden;
     }
 
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      transition: opacity 0.25s ease;
-    }
-
-    body.zen-mode header,
-    body.zen-mode .context-panel,
-    body.zen-mode .secondary-controls {
-      display: none !important;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 1.05rem;
-      letter-spacing: -0.02em;
-    }
-
-    .brand span {
-      color: var(--accent);
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    button, .file-label {
-      background: var(--surface-hover);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.15s ease;
-      user-select: none;
-    }
-
-    button:hover, .file-label:hover {
-      background: #27272e;
-      border-color: #3f3f46;
-    }
-
-    button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-      font-weight: 600;
-    }
-
-    button.primary:hover {
-      background: #dc2626;
-    }
-
-    #installBtn {
-      display: none;
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
-    }
-
-    main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 340px;
-      max-width: 1280px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 20px;
-      gap: 20px;
-    }
-
-    body.zen-mode main {
-      grid-template-columns: 1fr;
-      max-width: 900px;
-      align-items: center;
-    }
-
-    @media (max-width: 860px) {
-      main {
-        grid-template-columns: 1fr;
-        padding: 14px;
-      }
-    }
-
-    .reader-section {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    /* RSVP Focal Box */
-    .rsvp-stage {
-      position: relative;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      height: 240px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-    }
-
-    /* Vertical ORP Alignment Markers */
-    .rsvp-stage::before,
-    .rsvp-stage::after {
-      content: "";
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 2px;
-      height: 18px;
-      background: var(--accent);
-      opacity: 0.75;
-    }
-    .rsvp-stage::before { top: 14px; }
-    .rsvp-stage::after { bottom: 14px; }
-
-    .word-container {
+    /* Stationary ORP Focal Grid: Left right-aligned, Center fixed 1ch, Right left-aligned */
+    .rsvp-word-grid {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: baseline;
       width: 100%;
-      padding: 0 16px;
-      font-size: clamp(2.2rem, 5vw, 3.75rem);
-      font-weight: 700;
-      letter-spacing: 0.01em;
-      font-variant-numeric: tabular-nums;
+      font-family: 'JetBrains Mono', monospace;
+      user-select: none;
     }
 
-    .word-left {
+    .rsvp-left {
       text-align: right;
-      color: var(--text);
+      color: #e4e4e7;
       white-space: pre;
+      overflow: hidden;
     }
 
-    .word-orp {
-      color: var(--accent);
-      text-shadow: 0 0 18px var(--accent-glow);
+    .rsvp-center {
       text-align: center;
+      color: #ef4444;
+      font-weight: 700;
+      position: relative;
     }
 
-    .word-right {
+    .rsvp-right {
       text-align: left;
-      color: var(--text);
+      color: #e4e4e7;
       white-space: pre;
+      overflow: hidden;
     }
 
-    .zen-exit-hint {
+    /* Reticle Vertical Tick Marks anchored directly to the center column */
+    .reticle-container {
+      position: relative;
+    }
+
+    .reticle-guide {
       position: absolute;
-      top: 12px;
-      right: 14px;
-      font-size: 0.75rem;
-      color: var(--muted);
-      display: none;
-      cursor: pointer;
-    }
-    body.zen-mode .zen-exit-hint {
-      display: block;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 14px;
+      background-color: #3f3f46;
+      border-radius: 999px;
+      pointer-events: none;
     }
 
-    /* Controls Card */
-    .controls-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+    .reticle-guide.top {
+      top: 0;
     }
 
-    .progress-row {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+    .reticle-guide.bottom {
+      bottom: 0;
     }
 
-    .progress-meta {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
+    /* Custom Range Slider */
     input[type="range"] {
       -webkit-appearance: none;
-      width: 100%;
-      height: 6px;
-      background: #27272a;
-      border-radius: 999px;
-      outline: none;
+      appearance: none;
+      background: transparent;
       cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: #27272a;
     }
 
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
+      appearance: none;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
+      background: #ef4444;
+      margin-top: -6px;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+      transition: transform 0.12s ease;
     }
 
-    .transport-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
     }
 
-    .speed-row {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
-    }
-
-    .speed-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .wpm-badge {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .preset-chips {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .preset-chips button {
-      padding: 5px 10px;
-      font-size: 0.78rem;
-    }
-
-    .toggles-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 10px;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-
-    .toggles-row label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-    }
-
-    /* Context Panel */
-    .context-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-height: calc(100vh - 105px);
-    }
-
-    .context-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--muted);
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 10px;
-    }
-
-    .context-body {
-      flex: 1;
-      overflow-y: auto;
-      line-height: 1.75;
-      font-size: 0.95rem;
-      color: #d4d4d8;
-      padding-right: 4px;
-    }
-
-    .ctx-word {
-      cursor: pointer;
-      border-radius: 4px;
-      padding: 1px 2px;
-    }
-
-    .ctx-word:hover {
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
       background: #27272a;
     }
 
-    .ctx-word.active {
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border: none;
+      border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
     }
 
-    .drop-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(9, 9, 11, 0.88);
-      border: 3px dashed var(--accent);
-      display: none;
-      align-items: center;
+    /* Context Reader Scrollbar */
+    .context-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .context-scroll::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    .context-scroll::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 999px;
+    }
+    .context-scroll::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+
+    /* Active word highlight in context panel */
+    .ctx-word {
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 1px 3px;
+      transition: background-color 0.1s ease, color 0.1s ease;
+    }
+    .ctx-word:hover {
+      background-color: #27272a;
+      color: #ffffff;
+    }
+    .ctx-word.active {
+      background-color: rgba(239, 68, 68, 0.22);
+      color: #fca5a5;
+      font-weight: 600;
+      box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.45);
+    }
+
+    /* Zen Mode Transitions */
+    body.zen-active .zen-hide {
+      display: none !important;
+    }
+    body.zen-active #main-container {
+      max-width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
       justify-content: center;
-      font-size: 1.4rem;
-      font-weight: 700;
-      z-index: 50;
+      padding: 1rem;
+    }
+    body.zen-active #rsvp-stage {
+      border-color: #18181d;
+      background-color: #09090b;
+      padding-top: 4rem;
+      padding-bottom: 4rem;
     }
   </style>
 </head>
-<body>
+<body class="min-h-screen bg-oled text-zinc-100 antialiased selection:bg-red-500/30 selection:text-red-200">
 
-  <div class="drop-overlay" id="dropOverlay">Drop PDF File Here to Load</div>
+  <!-- Top Navigation & PWA Install Bar -->
+  <header class="zen-hide sticky top-0 z-30 border-b border-borderSubtle/80 bg-oled/90 backdrop-blur-md">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500 font-mono font-bold text-lg">
+          ⚡
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg tracking-tight text-white">RSVP Speed Reader</h1>
+            <span class="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">2K WPM</span>
+          </div>
+          <p id="doc-title-display" class="text-xs text-zinc-400 truncate max-w-[200px] sm:max-w-xs">Sample Text Loaded</p>
+        </div>
+      </div>
 
-  <header>
-    <div class="brand">⚡ <span>RSVP</span> Speed Reader</div>
-    <div class="header-actions">
-      <button id="installBtn">📲 Install App</button>
-      <label class="file-label" for="pdfInput">📄 Open PDF</label>
-      <input type="file" id="pdfInput" accept="application/pdf,.txt" hidden />
-      <button id="zenBtn" title="Toggle Zen Mode (F)">⛶ Zen</button>
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2">
+        <!-- PWA Install Trigger -->
+        <button id="pwa-install-btn" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-500 text-white shadow-sm shadow-red-950 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>Install App</span>
+        </button>
+
+        <!-- How to Install Help Button (for browsers without beforeinstallprompt like Safari/Firefox) -->
+        <button id="pwa-help-btn" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-card hover:bg-cardHover text-zinc-300 border border-borderSubtle transition" title="Install as Desktop or Mobile Web App">
+          <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span class="hidden sm:inline">PWA Info</span>
+        </button>
+
+        <!-- Paste Text Button -->
+        <button id="open-paste-modal-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card hover:bg-cardHover text-zinc-200 border border-borderSubtle transition">
+          <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span>Paste Text</span>
+        </button>
+
+        <!-- Upload PDF Button -->
+        <label for="pdf-file-input" class="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 font-semibold transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          <span>Upload PDF</span>
+        </label>
+        <input id="pdf-file-input" type="file" accept="application/pdf" class="hidden" />
+      </div>
     </div>
   </header>
 
-  <main>
-    <section class="reader-section">
-      <div class="rsvp-stage" id="rsvpStage">
-        <span class="zen-exit-hint" id="exitZenBtn">Exit Zen (F)</span>
-        <div class="word-container">
-          <span class="word-left" id="wordLeft">Rea</span>
-          <span class="word-orp" id="wordOrp">d</span>
-          <span class="word-right" id="wordRight">y</span>
+  <!-- Main Workspace -->
+  <main id="main-container" class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Status / Extraction Banner (Hidden by default) -->
+    <div id="status-banner" class="hidden zen-hide rounded-xl bg-card border border-borderSubtle px-4 py-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div id="status-spinner" class="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+        <span id="status-text" class="text-xs sm:text-sm text-zinc-200 font-medium">Extracting text from PDF...</span>
+      </div>
+      <span id="status-meta" class="text-xs font-mono text-zinc-400"></span>
+    </div>
+
+    <!-- Resume Toast Banner (Shown when saved progress is detected) -->
+    <div id="resume-banner" class="hidden zen-hide rounded-xl bg-red-950/30 border border-red-500/30 px-4 py-2.5 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2 text-xs sm:text-sm text-red-200">
+        <span>🔖</span>
+        <span id="resume-text">Resumed from your last saved position.</span>
+      </div>
+      <button id="restart-from-banner-btn" class="text-xs font-medium text-red-400 hover:text-red-300 underline">
+        Start at Beginning
+      </button>
+    </div>
+
+    <!-- Primary Grid: Reader Stage + Context Viewer -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Left/Main Column: RSVP Focal Display & Controls -->
+      <div id="reader-column" class="lg:col-span-7 space-y-4">
+
+        <!-- RSVP Focal Reticle Card -->
+        <div id="rsvp-stage" class="relative rounded-2xl bg-card border border-borderSubtle p-6 sm:p-10 shadow-2xl transition-all duration-200">
+
+          <!-- Top Bar inside Stage: WPM Badge + Zen Mode Toggle -->
+          <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+              <span id="live-wpm-badge" class="font-mono text-xs sm:text-sm font-bold px-2.5 py-1 rounded-md bg-red-500/15 text-red-400 border border-red-500/30">
+                450 WPM
+              </span>
+              <span id="ms-per-word-badge" class="font-mono text-xs text-zinc-500">
+                133 ms/word
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <!-- Font Size Adjusters -->
+              <button id="font-dec-btn" class="zen-hide px-2 py-1 rounded-md text-xs font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-borderSubtle" title="Decrease Word Size">A-</button>
+              <button id="font-inc-btn" class="zen-hide px-2 py-1 rounded-md text-xs font-mono bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-borderSubtle" title="Increase Word Size">A+</button>
+
+              <!-- Focus Lock / Zen Mode Button -->
+              <button id="zen-toggle-btn" class="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition" title="Toggle Zen Focus Mode (Shortcut: F)">
+                <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                <span id="zen-btn-label">Zen Mode</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Central Reticle Stage (Click/Tap to Play/Pause) -->
+          <div id="reticle-click-zone" class="reticle-container cursor-pointer py-12 sm:py-16 my-2 border-y border-zinc-800/90 flex items-center justify-center relative overflow-hidden" title="Click or press Space to Play/Pause">
+            <!-- Top & Bottom Vertical Alignment Reticle Marks -->
+            <div class="reticle-guide top"></div>
+            <div class="reticle-guide bottom"></div>
+
+            <!-- Stationary ORP Word Display -->
+            <div id="rsvp-display" class="rsvp-word-grid text-4xl sm:text-5xl md:text-6xl tracking-tight">
+              <span id="word-left" class="rsvp-left">Rea</span>
+              <span id="word-center" class="rsvp-center">d</span>
+              <span id="word-right" class="rsvp-right">y</span>
+            </div>
+          </div>
+
+          <!-- Bottom Progress Scrubber -->
+          <div class="mt-6 space-y-2">
+            <input id="progress-scrubber" type="range" min="0" max="100" value="0" class="w-full" aria-label="Reading progress scrubber" />
+            <div class="flex items-center justify-between text-xs font-mono text-zinc-400">
+              <span id="word-counter-display">Word 1 / 1</span>
+              <span id="percent-display">0%</span>
+              <span id="time-remaining-display">0m 00s left</span>
+            </div>
+          </div>
+
+          <!-- Primary Playback Controls -->
+          <div class="mt-6 flex items-center justify-center gap-2 sm:gap-3">
+            <button id="restart-btn" class="p-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition" title="Restart (R)">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+
+            <button id="skip-back-10-btn" class="px-3 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle font-mono text-xs font-semibold transition" title="Back 10 words (Shift + Left)">
+              -10
+            </button>
+
+            <button id="skip-back-1-btn" class="p-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition" title="Previous word (Left Arrow)">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+
+            <!-- Play / Pause Hero Button -->
+            <button id="play-pause-btn" class="px-7 py-3.5 rounded-xl bg-red-600 hover:bg-red-500 active:scale-[0.98] text-white font-semibold text-sm sm:text-base flex items-center gap-2 shadow-lg shadow-red-950/60 transition">
+              <svg id="play-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <svg id="pause-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+              <span id="play-pause-label">Play</span>
+            </button>
+
+            <button id="skip-fwd-1-btn" class="p-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition" title="Next word (Right Arrow)">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </button>
+
+            <button id="skip-fwd-10-btn" class="px-3 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle font-mono text-xs font-semibold transition" title="Forward 10 words (Shift + Right)">
+              +10
+            </button>
+          </div>
+        </div>
+
+        <!-- Speed & Engine Controls Card -->
+        <div class="zen-hide rounded-2xl bg-card border border-borderSubtle p-5 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Speed Engine (100 – 2,000 WPM)</h2>
+              <p class="text-xs text-zinc-400">Adjust words per minute or tap a preset</p>
+            </div>
+
+            <!-- +/- 50 WPM Step Buttons -->
+            <div class="flex items-center gap-1.5">
+              <button id="wpm-down-btn" class="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle font-mono text-xs font-semibold transition" title="Decrease 50 WPM (Down Arrow)">
+                -50
+              </button>
+              <span id="wpm-control-readout" class="font-mono text-sm font-bold text-white px-2 min-w-[78px] text-center">
+                450 WPM
+              </span>
+              <button id="wpm-up-btn" class="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle font-mono text-xs font-semibold transition" title="Increase 50 WPM (Up Arrow)">
+                +50
+              </button>
+            </div>
+          </div>
+
+          <!-- WPM Slider -->
+          <div class="space-y-1.5">
+            <input id="wpm-slider" type="range" min="100" max="2000" step="25" value="450" class="w-full" />
+            <div class="flex justify-between text-[11px] font-mono text-zinc-500">
+              <span>100 WPM</span>
+              <span>600 WPM</span>
+              <span>1,200 WPM</span>
+              <span class="text-red-400 font-semibold">2,000 WPM</span>
+            </div>
+          </div>
+
+          <!-- Quick-Select Speed Presets -->
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <button data-wpm="250" class="wpm-preset-btn py-1.5 px-2 rounded-lg font-mono text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition">250</button>
+            <button data-wpm="500" class="wpm-preset-btn py-1.5 px-2 rounded-lg font-mono text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition">500</button>
+            <button data-wpm="800" class="wpm-preset-btn py-1.5 px-2 rounded-lg font-mono text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition">800</button>
+            <button data-wpm="1200" class="wpm-preset-btn py-1.5 px-2 rounded-lg font-mono text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition">1200</button>
+            <button data-wpm="1600" class="wpm-preset-btn py-1.5 px-2 rounded-lg font-mono text-xs bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle transition">1600</button>
+            <button data-wpm="2000" class="wpm-preset-btn py-1.5 px-2 rounded-lg font-mono text-xs bg-zinc-900 hover:bg-zinc-800 text-red-400 border border-red-500/30 font-semibold transition">2000 ⚡</button>
+          </div>
+
+          <!-- Smart Micro-Pauses Toggle & Keyboard Hints -->
+          <div class="pt-3 border-t border-borderSubtle/80 flex flex-wrap items-center justify-between gap-3">
+            <label class="flex items-center gap-2.5 cursor-pointer select-none">
+              <input id="smart-pause-toggle" type="checkbox" checked class="w-4 h-4 accent-red-500 rounded cursor-pointer" />
+              <span class="text-xs sm:text-sm text-zinc-300">Smart Punctuation & Long-Word Pauses</span>
+            </label>
+
+            <div class="hidden sm:flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+              <span class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">Space</span> Play
+              <span class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">←/→</span> Skip
+              <span class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">↑/↓</span> WPM
+              <span class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">F</span> Zen
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="controls-card">
-        <div class="progress-row">
-          <div class="progress-meta">
-            <span id="docTitle">Sample Quick-Start Guide</span>
-            <span id="progressText">0 / 0 words • 0m 0s left</span>
-          </div>
-          <input type="range" id="scrubber" min="0" max="0" value="0" />
-        </div>
+      <!-- Right Column: Context Reader & Drag-Drop PDF Zone -->
+      <div class="zen-hide lg:col-span-5 space-y-4">
 
-        <div class="transport-row">
-          <button id="restartBtn" title="Restart (R)">⏮ Restart</button>
-          <button id="backBtn" title="Back 10 words">⏪ -10</button>
-          <button id="playPauseBtn" class="primary" title="Play / Pause (Space)">▶ Play</button>
-          <button id="fwdBtn" title="Forward 10 words">+10 ⏩</button>
-        </div>
-
-        <div class="speed-row secondary-controls">
-          <div class="speed-header">
-            <span style="font-size:0.85rem; color:var(--muted);">Reading Speed</span>
-            <span class="wpm-badge"><span id="wpmDisplay">450</span> WPM</span>
-          </div>
-          <input type="range" id="wpmSlider" min="100" max="2000" step="25" value="450" />
-          <div class="preset-chips">
-            <button data-wpm="300">300 WPM</button>
-            <button data-wpm="500">500 WPM</button>
-            <button data-wpm="800">800 WPM</button>
-            <button data-wpm="1200">1,200 WPM</button>
-            <button data-wpm="2000">2,000 WPM</button>
+        <!-- Drag-and-Drop PDF Dropzone -->
+        <div id="pdf-dropzone" class="rounded-2xl bg-card border-2 border-dashed border-zinc-800 hover:border-red-500/60 p-5 text-center cursor-pointer transition group">
+          <div class="flex flex-col items-center justify-center gap-1.5">
+            <div class="w-9 h-9 rounded-full bg-zinc-900 group-hover:bg-red-500/15 flex items-center justify-center text-zinc-400 group-hover:text-red-400 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            </div>
+            <p class="text-xs sm:text-sm font-medium text-zinc-200">
+              Drop any <span class="text-red-400 font-semibold">PDF document</span> here or click to browse
+            </p>
+            <p id="pdf-stats-sub" class="text-[11px] text-zinc-500 font-mono">
+              100% local extraction via PDF.js • Progress auto-saved
+            </p>
           </div>
         </div>
 
-        <div class="toggles-row secondary-controls">
-          <label>
-            <input type="checkbox" id="smartPauseToggle" checked />
-            Punctuation micro-pauses
-          </label>
-          <span style="font-size:0.78rem;">Shortcuts: Space • Arrows • F • R</span>
+        <!-- Context Reader Panel -->
+        <div class="rounded-2xl bg-card border border-borderSubtle flex flex-col h-[410px] lg:h-[470px]">
+          <div class="px-4 py-3 border-b border-borderSubtle flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+              <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-300">Context Reader</h3>
+            </div>
+            <span class="text-[11px] text-zinc-500">Click any word to jump</span>
+          </div>
+
+          <div id="context-container" class="context-scroll flex-1 p-4 overflow-y-auto text-sm leading-relaxed text-zinc-400 select-none">
+            <!-- Populated dynamically with clickable word spans -->
+          </div>
         </div>
       </div>
-    </section>
 
-    <aside class="context-panel">
-      <div class="context-header">
-        <span>LIVE CONTEXT</span>
-        <span id="percentText">0%</span>
-      </div>
-      <div class="context-body" id="contextBody"></div>
-    </aside>
+    </div>
   </main>
 
+  <!-- Paste Custom Text Modal -->
+  <div id="paste-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-card border border-borderSubtle p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white">Paste Custom Text or Article</h3>
+        <button id="close-paste-modal-btn" class="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <textarea id="paste-textarea" rows="8" placeholder="Paste any text, notes, essay, or book chapter here to read at up to 2,000 WPM..." class="w-full rounded-xl bg-oled border border-borderSubtle p-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-red-500"></textarea>
+      <div class="flex items-center justify-between gap-2">
+        <button id="load-sample-btn" class="px-3 py-2 rounded-lg text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-borderSubtle">
+          Load Sample Text
+        </button>
+        <div class="flex items-center gap-2">
+          <button id="cancel-paste-btn" class="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-white">
+            Cancel
+          </button>
+          <button id="apply-paste-btn" class="px-4 py-2 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-500 text-white">
+            Start Reading
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PWA Install Instructions Modal -->
+  <div id="pwa-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-2xl bg-card border border-borderSubtle p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-red-500 text-lg">⚡</span>
+          <h3 class="text-base font-bold text-white">Install as Standalone App</h3>
+        </div>
+        <button id="close-pwa-modal-btn" class="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="space-y-3 text-xs sm:text-sm text-zinc-300 leading-relaxed">
+        <p>You can install this speed-reader directly onto your PC, Mac, Android, or iPhone so it runs in its own borderless window:</p>
+        <div class="p-3 rounded-xl bg-oled border border-borderSubtle space-y-1.5">
+          <p class="font-semibold text-white">💻 Desktop (Chrome / Edge):</p>
+          <p class="text-zinc-400">Click the <strong class="text-zinc-200">Install icon</strong> in the right side of the address bar, or open menu (<strong class="text-zinc-200">⋮</strong>) → <strong class="text-zinc-200">Cast, save, and share</strong> → <strong class="text-zinc-200">Install page as app</strong>.</p>
+        </div>
+        <div class="p-3 rounded-xl bg-oled border border-borderSubtle space-y-1.5">
+          <p class="font-semibold text-white">📱 Mobile (Android / iOS):</p>
+          <p class="text-zinc-400">On Chrome/Android tap <strong class="text-zinc-200">⋮ → Add to Home screen / Install app</strong>. On Safari/iPhone tap <strong class="text-zinc-200">Share → Add to Home Screen</strong>.</p>
+        </div>
+      </div>
+      <div class="flex justify-end">
+        <button id="ok-pwa-modal-btn" class="px-4 py-2 rounded-lg text-xs font-semibold bg-zinc-100 hover:bg-white text-zinc-950">
+          Got it
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // Configure PDF.js Worker
-    if (window.pdfjsLib) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-    }
+    (function () {
+      // =========================================================================
+      // 1. DYNAMIC PWA MANIFEST & SERVICE WORKER SETUP
+      // =========================================================================
+      const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <rect width="512" height="512" rx="112" fill="#09090b"/>
+        <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#27272a" stroke-width="12"/>
+        <line x1="256" y1="68" x2="256" y2="124" stroke="#ef4444" stroke-width="14" stroke-linecap="round"/>
+        <line x1="256" y1="388" x2="256" y2="444" stroke="#ef4444" stroke-width="14" stroke-linecap="round"/>
+        <text x="256" y="295" font-family="monospace" font-weight="bold" font-size="140" text-anchor="middle" fill="#f4f4f5">R<tspan fill="#ef4444">S</tspan>VP</text>
+      </svg>`;
+      const svgIconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgIcon);
 
-    // Dynamic PWA Manifest Injection for Single-File Hosting
-    const manifest = {
-      name: "RSVP Speed Reader",
-      short_name: "RSVP Reader",
-      start_url: "./",
-      display: "standalone",
-      background_color: "#09090b",
-      theme_color: "#09090b",
-      icons: [
-        {
-          src: "data:image/svg+xml;base64," + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#09090b"/><text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="110" fill="#ef4444">⚡</text></svg>'),
-          sizes: "192x192",
-          type: "image/svg+xml"
-        }
-      ]
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
-    const manifestLink = document.createElement("link");
-    manifestLink.rel = "manifest";
-    manifestLink.href = URL.createObjectURL(manifestBlob);
-    document.head.appendChild(manifestLink);
-
-    // PWA Install Prompt
-    let deferredPrompt;
-    const installBtn = document.getElementById("installBtn");
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installBtn.style.display = "inline-flex";
-    });
-    installBtn.addEventListener("click", async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      installBtn.style.display = "none";
-    });
-
-    // App State
-    const sampleText =
-      "Welcome to your custom RSVP Speed Reader hosted on keshavbuilds.xyz! " +
-      "Rapid Serial Visual Presentation eliminates eye movement fatigue by anchoring each word's Optimal Recognition Point directly in the center of your vision. " +
-      "Notice the red focal letter? Keep your eyes locked right on that vertical alignment guide. " +
-      "Click Open PDF in the top bar—or drag and drop any PDF file onto this window—to start reading at speeds up to 2,000 words per minute.";
-
-    let words = [];
-    let currentIndex = 0;
-    let wpm = 450;
-    let isPlaying = false;
-    let timerId = null;
-    let currentDocName = "Sample Quick-Start Guide";
-
-    // DOM Elements
-    const wordLeft = document.getElementById("wordLeft");
-    const wordOrp = document.getElementById("wordOrp");
-    const wordRight = document.getElementById("wordRight");
-    const scrubber = document.getElementById("scrubber");
-    const progressText = document.getElementById("progressText");
-    const percentText = document.getElementById("percentText");
-    const docTitle = document.getElementById("docTitle");
-    const playPauseBtn = document.getElementById("playPauseBtn");
-    const wpmSlider = document.getElementById("wpmSlider");
-    const wpmDisplay = document.getElementById("wpmDisplay");
-    const smartPauseToggle = document.getElementById("smartPauseToggle");
-    const contextBody = document.getElementById("contextBody");
-
-    function getORPIndex(word) {
-      const len = word.replace(/[^a-zA-Z0-9]/g, "").length;
-      if (len <= 1) return 0;
-      if (len <= 5) return 1;
-      if (len <= 9) return 2;
-      if (len <= 13) return 3;
-      return 4;
-    }
-
-    function renderWord(index) {
-      if (!words.length) return;
-      currentIndex = Math.max(0, Math.min(index, words.length - 1));
-      const word = words[currentIndex];
-      const orp = Math.min(getORPIndex(word), word.length - 1);
-
-      wordLeft.textContent = word.slice(0, orp);
-      wordOrp.textContent = word[orp] || "";
-      wordRight.textContent = word.slice(orp + 1);
-
-      scrubber.value = currentIndex;
-      const pct = Math.round(((currentIndex + 1) / words.length) * 100);
-      percentText.textContent = pct + "%";
-
-      const wordsLeft = words.length - currentIndex - 1;
-      const secsLeft = Math.round((wordsLeft / wpm) * 60);
-      const mins = Math.floor(secsLeft / 60);
-      const secs = secsLeft % 60;
-      progressText.textContent = `${currentIndex + 1} / ${words.length} words • ${mins}m ${secs}s left`;
-
-      // Highlight in context panel
-      const prevActive = contextBody.querySelector(".ctx-word.active");
-      if (prevActive) prevActive.classList.remove("active");
-      const activeSpan = contextBody.children[currentIndex];
-      if (activeSpan) {
-        activeSpan.classList.add("active");
-        activeSpan.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-
-      localStorage.setItem("rsvp_pos_" + currentDocName, currentIndex);
-    }
-
-    function buildContextView() {
-      contextBody.innerHTML = "";
-      const frag = document.createDocumentFragment();
-      words.forEach((w, idx) => {
-        const span = document.createElement("span");
-        span.className = "ctx-word";
-        span.textContent = w + " ";
-        span.onclick = () => {
-          pause();
-          renderWord(idx);
-        };
-        frag.appendChild(span);
-      });
-      contextBody.appendChild(frag);
-    }
-
-    function loadText(text, title) {
-      pause();
-      currentDocName = title;
-      docTitle.textContent = title;
-      words = text.trim().split(/\s+/).filter(Boolean);
-      scrubber.max = Math.max(0, words.length - 1);
-      buildContextView();
-
-      const savedPos = parseInt(localStorage.getItem("rsvp_pos_" + title) || "0", 10);
-      renderWord(savedPos < words.length ? savedPos : 0);
-    }
-
-    function getDelayForWord(word) {
-      const baseMs = 60000 / wpm;
-      if (!smartPauseToggle.checked) return baseMs;
-      if (/[.!?]["']?$/.test(word)) return baseMs * 2.2;
-      if (/[,;:]["']?$/.test(word)) return baseMs * 1.5;
-      if (word.length > 9) return baseMs * 1.25;
-      return baseMs;
-    }
-
-    function step() {
-      if (!isPlaying) return;
-      if (currentIndex >= words.length - 1) {
-        pause();
-        return;
-      }
-      renderWord(currentIndex + 1);
-      timerId = setTimeout(step, getDelayForWord(words[currentIndex]));
-    }
-
-    function play() {
-      if (isPlaying || !words.length) return;
-      if (currentIndex >= words.length - 1) currentIndex = 0;
-      isPlaying = true;
-      playPauseBtn.textContent = "⏸ Pause";
-      timerId = setTimeout(step, getDelayForWord(words[currentIndex]));
-    }
-
-    function pause() {
-      isPlaying = false;
-      clearTimeout(timerId);
-      playPauseBtn.textContent = "▶ Play";
-    }
-
-    // Event Listeners
-    playPauseBtn.onclick = () => (isPlaying ? pause() : play());
-    document.getElementById("restartBtn").onclick = () => { pause(); renderWord(0); };
-    document.getElementById("backBtn").onclick = () => renderWord(currentIndex - 10);
-    document.getElementById("fwdBtn").onclick = () => renderWord(currentIndex + 10);
-
-    scrubber.oninput = (e) => {
-      pause();
-      renderWord(parseInt(e.target.value, 10));
-    };
-
-    wpmSlider.oninput = (e) => {
-      wpm = parseInt(e.target.value, 10);
-      wpmDisplay.textContent = wpm;
-    };
-
-    document.querySelectorAll(".preset-chips button").forEach((btn) => {
-      btn.onclick = () => {
-        wpm = parseInt(btn.dataset.wpm, 10);
-        wpmSlider.value = wpm;
-        wpmDisplay.textContent = wpm;
+      const manifestObj = {
+        name: 'RSVP Speed Reader',
+        short_name: 'RSVP',
+        description: 'Zero-distraction Instagram-reel style RSVP PDF speed-reader up to 2,000 WPM.',
+        start_url: window.location.href,
+        display: 'standalone',
+        background_color: '#09090b',
+        theme_color: '#09090b',
+        orientation: 'any',
+        icons: [
+          {
+            src: svgIconUrl,
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          }
+        ]
       };
-    });
 
-    const toggleZen = () => document.body.classList.toggle("zen-mode");
-    document.getElementById("zenBtn").onclick = toggleZen;
-    document.getElementById("exitZenBtn").onclick = toggleZen;
-
-    // File Upload & PDF Extraction
-    async function handleFile(file) {
-      if (!file) return;
-      pause();
-      docTitle.textContent = "Loading " + file.name + "...";
-
-      if (file.type === "text/plain") {
-        const txt = await file.text();
-        loadText(txt, file.name);
-        return;
+      try {
+        const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        document.getElementById('pwa-manifest').setAttribute('href', manifestURL);
+      } catch (e) {
+        console.warn('Dynamic manifest setup skipped:', e);
       }
 
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let fullText = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        fullText += content.items.map((item) => item.str).join(" ") + " ";
+      // Capture native install prompt when supported
+      let deferredPrompt = null;
+      const pwaInstallBtn = document.getElementById('pwa-install-btn');
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        pwaInstallBtn.classList.remove('hidden');
+        pwaInstallBtn.classList.add('flex');
+      });
+
+      pwaInstallBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          pwaInstallBtn.classList.add('hidden');
+        }
+        deferredPrompt = null;
+      });
+
+      // =========================================================================
+      // 2. PDF.JS CONFIGURATION
+      // =========================================================================
+      if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       }
-      loadText(fullText, file.name);
-    }
 
-    document.getElementById("pdfInput").onchange = (e) => handleFile(e.target.files[0]);
+      // =========================================================================
+      // 3. STATE & SAMPLE CONTENT
+      // =========================================================================
+      const SAMPLE_TEXT = `Welcome to your RSVP Speed Reader, engineered for extreme reading speeds up to 2,000 words per minute. Rapid Serial Visual Presentation eliminates eye movement fatigue by flashing each word in the exact same focal spot. Notice the red highlighted character anchored between the vertical reticle ticks: this is the Optimal Recognition Point, or ORP. Your brain recognizes words fastest when your eyes lock onto this slightly left-of-center focal letter without ever scanning horizontally across a page. Try increasing the speed slider or tapping the preset pills from 500 up to 2,000 WPM. Smart punctuation micro-pauses automatically give your mind a brief fraction of a second to absorb commas, periods, and long technical terms. You can upload any PDF document, paste custom articles, click any word in the context reader to jump instantly, or activate Zen Mode for complete tunnel-vision focus.`;
 
-    // Drag and Drop
-    const dropOverlay = document.getElementById("dropOverlay");
-    window.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      dropOverlay.style.display = "flex";
-    });
-    window.addEventListener("dragleave", (e) => {
-      if (e.target === dropOverlay) dropOverlay.style.display = "none";
-    });
-    window.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dropOverlay.style.display = "none";
-      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-    });
+      const state = {
+        docId: 'sample-welcome-v1',
+        docTitle: 'Sample Welcome Guide',
+        words: [],
+        currentIndex: 0,
+        wpm: 450,
+        isPlaying: false,
+        smartPauses: true,
+        timerId: null,
+        fontSizeStep: 0, // -2 to +3
+        zenMode: false,
+        pageCount: 1
+      };
 
-    // Keyboard Shortcuts
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        isPlaying ? pause() : play();
-      } else if (e.code === "ArrowLeft") {
-        renderWord(currentIndex - (e.shiftKey ? 10 : 1));
-      } else if (e.code === "ArrowRight") {
-        renderWord(currentIndex + (e.shiftKey ? 10 : 1));
-      } else if (e.code === "ArrowUp") {
-        e.preventDefault();
-        wpm = Math.min(2000, wpm + 50);
-        wpmSlider.value = wpm;
-        wpmDisplay.textContent = wpm;
-      } else if (e.code === "ArrowDown") {
-        e.preventDefault();
-        wpm = Math.max(100, wpm - 50);
-        wpmSlider.value = wpm;
-        wpmDisplay.textContent = wpm;
-      } else if (e.key.toLowerCase() === "f") {
-        toggleZen();
-      } else if (e.key.toLowerCase() === "r") {
-        pause();
-        renderWord(0);
+      // =========================================================================
+      // 4. DOM ELEMENTS
+      // =========================================================================
+      const el = {
+        docTitle: document.getElementById('doc-title-display'),
+        statusBanner: document.getElementById('status-banner'),
+        statusSpinner: document.getElementById('status-spinner'),
+        statusText: document.getElementById('status-text'),
+        statusMeta: document.getElementById('status-meta'),
+        resumeBanner: document.getElementById('resume-banner'),
+        resumeText: document.getElementById('resume-text'),
+        restartFromBannerBtn: document.getElementById('restart-from-banner-btn'),
+
+        rsvpDisplay: document.getElementById('rsvp-display'),
+        wordLeft: document.getElementById('word-left'),
+        wordCenter: document.getElementById('word-center'),
+        wordRight: document.getElementById('word-right'),
+        reticleClickZone: document.getElementById('reticle-click-zone'),
+
+        liveWpmBadge: document.getElementById('live-wpm-badge'),
+        msPerWordBadge: document.getElementById('ms-per-word-badge'),
+        wpmControlReadout: document.getElementById('wpm-control-readout'),
+        wpmSlider: document.getElementById('wpm-slider'),
+        wpmDownBtn: document.getElementById('wpm-down-btn'),
+        wpmUpBtn: document.getElementById('wpm-up-btn'),
+        presetBtns: document.querySelectorAll('.wpm-preset-btn'),
+        smartPauseToggle: document.getElementById('smart-pause-toggle'),
+
+        progressScrubber: document.getElementById('progress-scrubber'),
+        wordCounterDisplay: document.getElementById('word-counter-display'),
+        percentDisplay: document.getElementById('percent-display'),
+        timeRemainingDisplay: document.getElementById('time-remaining-display'),
+
+        playPauseBtn: document.getElementById('play-pause-btn'),
+        playIcon: document.getElementById('play-icon'),
+        pauseIcon: document.getElementById('pause-icon'),
+        playPauseLabel: document.getElementById('play-pause-label'),
+        restartBtn: document.getElementById('restart-btn'),
+        skipBack1Btn: document.getElementById('skip-back-1-btn'),
+        skipFwd1Btn: document.getElementById('skip-fwd-1-btn'),
+        skipBack10Btn: document.getElementById('skip-back-10-btn'),
+        skipFwd10Btn: document.getElementById('skip-fwd-10-btn'),
+
+        zenToggleBtn: document.getElementById('zen-toggle-btn'),
+        zenBtnLabel: document.getElementById('zen-btn-label'),
+        fontDecBtn: document.getElementById('font-dec-btn'),
+        fontIncBtn: document.getElementById('font-inc-btn'),
+
+        pdfInput: document.getElementById('pdf-file-input'),
+        pdfDropzone: document.getElementById('pdf-dropzone'),
+        pdfStatsSub: document.getElementById('pdf-stats-sub'),
+        contextContainer: document.getElementById('context-container'),
+
+        pasteModal: document.getElementById('paste-modal'),
+        openPasteModalBtn: document.getElementById('open-paste-modal-btn'),
+        closePasteModalBtn: document.getElementById('close-paste-modal-btn'),
+        cancelPasteBtn: document.getElementById('cancel-paste-btn'),
+        applyPasteBtn: document.getElementById('apply-paste-btn'),
+        loadSampleBtn: document.getElementById('load-sample-btn'),
+        pasteTextarea: document.getElementById('paste-textarea'),
+
+        pwaModal: document.getElementById('pwa-modal'),
+        pwaHelpBtn: document.getElementById('pwa-help-btn'),
+        closePwaModalBtn: document.getElementById('close-pwa-modal-btn'),
+        okPwaModalBtn: document.getElementById('ok-pwa-modal-btn'),
+      };
+
+      // =========================================================================
+      // 5. ORP (OPTIMAL RECOGNITION POINT) ALGORITHM
+      // =========================================================================
+      function splitWordORP(word) {
+        if (!word) return { left: '', center: ' ', right: '' };
+
+        // Strip leading/trailing punctuation when computing visual word length
+        const cleanMatch = word.match(/^([^\w\u00C0-\u017F]*)([\w\u00C0-\u017F'-]+)([^\w\u00C0-\u017F]*)$/);
+        let coreLen = word.length;
+        let prefixLen = 0;
+
+        if (cleanMatch) {
+          prefixLen = cleanMatch[1].length;
+          coreLen = cleanMatch[2].length;
+        }
+
+        // Standard RSVP ORP index formula (slightly left of center)
+        let orpOffset = 0;
+        if (coreLen <= 1) orpOffset = 0;
+        else if (coreLen <= 5) orpOffset = 1;
+        else if (coreLen <= 9) orpOffset = 2;
+        else if (coreLen <= 13) orpOffset = 3;
+        else orpOffset = 4;
+
+        const focalIndex = Math.min(prefixLen + orpOffset, word.length - 1);
+
+        return {
+          left: word.slice(0, focalIndex),
+          center: word[focalIndex],
+          right: word.slice(focalIndex + 1)
+        };
       }
-    });
 
-    // Initialize
-    loadText(sampleText, "Sample Quick-Start Guide");
+      // =========================================================================
+      // 6. PUNCTUATION MICRO-PAUSE TIMING ENGINE
+      // =========================================================================
+      function getWordDelayMs(word, wpm, useSmartPauses) {
+        const baseMs = 60000 / wpm;
+        if (!useSmartPauses || !word) return baseMs;
+
+        let multiplier = 1.0;
+
+        // Sentence endings (. ! ?)
+        if (/[.!?]["'”’)\]]*$/.test(word)) {
+          multiplier = 2.0;
+        }
+        // Clause breaks (, ; : — -)
+        else if (/[,;:—–]["'”’)\]]*$/.test(word)) {
+          multiplier = 1.4;
+        }
+        // Longer words (> 8 characters) get subtle cognitive buffer
+        else if (word.length > 8) {
+          multiplier = 1.2;
+        }
+
+        return baseMs * multiplier;
+      }
+
+      // =========================================================================
+      // 7. LOCAL STORAGE PROGRESS PERSISTENCE
+      // =========================================================================
+      function computeDocId(title, wordCount) {
+        return `rsvp_prog_${title.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}_${wordCount}`;
+      }
+
+      function saveProgress() {
+        try {
+          if (!state.docId || state.words.length === 0) return;
+          localStorage.setItem(state.docId, JSON.stringify({
+            index: state.currentIndex,
+            wpm: state.wpm,
+            updatedAt: Date.now()
+          }));
+        } catch (e) {
+          // Ignore quota errors
+        }
+      }
+
+      function loadSavedProgress(docId) {
+        try {
+          const raw = localStorage.getItem(docId);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // =========================================================================
+      // 8. RENDERING & UI UPDATES
+      // =========================================================================
+      let lastHighlightedSpan = null;
+
+      function renderCurrentWord() {
+        const total = state.words.length;
+        if (total === 0) {
+          el.wordLeft.textContent = '';
+          el.wordCenter.textContent = '—';
+          el.wordRight.textContent = '';
+          return;
+        }
+
+        const idx = Math.max(0, Math.min(state.currentIndex, total - 1));
+        state.currentIndex = idx;
+
+        const word = state.words[idx];
+        const parts = splitWordORP(word);
+
+        el.wordLeft.textContent = parts.left;
+        el.wordCenter.textContent = parts.center;
+        el.wordRight.textContent = parts.right;
+
+        // Update progress scrubber & counters
+        el.progressScrubber.max = Math.max(0, total - 1);
+        el.progressScrubber.value = idx;
+
+        const pct = total > 1 ? Math.round((idx / (total - 1)) * 100) : 100;
+        el.wordCounterDisplay.textContent = `Word ${(idx + 1).toLocaleString()} / ${total.toLocaleString()}`;
+        el.percentDisplay.textContent = `${pct}%`;
+
+        // Calculate estimated time remaining
+        const wordsLeft = Math.max(0, total - 1 - idx);
+        const secondsLeft = Math.round((wordsLeft / state.wpm) * 60);
+        const mins = Math.floor(secondsLeft / 60);
+        const secs = secondsLeft % 60;
+        el.timeRemainingDisplay.textContent = `${mins}m ${secs.toString().padStart(2, '0')}s left`;
+
+        // Sync Context Reader highlight & auto-scroll
+        if (lastHighlightedSpan) {
+          lastHighlightedSpan.classList.remove('active');
+        }
+        const activeSpan = document.getElementById(`ctx-w-${idx}`);
+        if (activeSpan) {
+          activeSpan.classList.add('active');
+          lastHighlightedSpan = activeSpan;
+
+          // Keep active word smoothly centered in context container
+          const container = el.contextContainer;
+          const spanTop = activeSpan.offsetTop;
+          const containerHeight = container.clientHeight;
+          const targetScroll = spanTop - containerHeight / 2 + activeSpan.offsetHeight / 2;
+
+          // Use instant scroll at ultra-high speeds (>900 WPM) to avoid smooth-scroll lag
+          if (state.wpm > 900 && state.isPlaying) {
+            container.scrollTop = targetScroll;
+          } else {
+            container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+          }
+        }
+      }
+
+      function buildContextReader() {
+        const container = el.contextContainer;
+        container.innerHTML = '';
+        lastHighlightedSpan = null;
+
+        const fragment = document.createDocumentFragment();
+        state.words.forEach((word, index) => {
+          const span = document.createElement('span');
+          span.id = `ctx-w-${index}`;
+          span.className = 'ctx-word inline-block mr-1 mb-0.5';
+          span.textContent = word;
+          span.dataset.idx = index;
+          fragment.appendChild(span);
+        });
+
+        container.appendChild(fragment);
+      }
+
+      // Event delegation for clicking any word in the context reader
+      el.contextContainer.addEventListener('click', (e) => {
+        const target = e.target.closest('.ctx-word');
+        if (!target) return;
+        const idx = parseInt(target.dataset.idx, 10);
+        if (!isNaN(idx)) {
+          pausePlayback();
+          state.currentIndex = idx;
+          renderCurrentWord();
+          saveProgress();
+        }
+      });
+
+      function updateWpmUI() {
+        const wpm = state.wpm;
+        const ms = Math.round(60000 / wpm);
+
+        el.wpmSlider.value = wpm;
+        el.liveWpmBadge.textContent = `${wpm.toLocaleString()} WPM`;
+        el.msPerWordBadge.textContent = `${ms} ms/word`;
+        el.wpmControlReadout.textContent = `${wpm.toLocaleString()} WPM`;
+
+        // Highlight matching preset button
+        el.presetBtns.forEach((btn) => {
+          const presetVal = parseInt(btn.dataset.wpm, 10);
+          if (presetVal === wpm) {
+            btn.classList.add('bg-red-600', 'text-white', 'border-red-500');
+            btn.classList.remove('bg-zinc-900', 'text-zinc-300', 'text-red-400');
+          } else {
+            btn.classList.remove('bg-red-600', 'text-white', 'border-red-500');
+            btn.classList.add('bg-zinc-900');
+            if (presetVal === 2000) {
+              btn.classList.add('text-red-400');
+            } else {
+              btn.classList.add('text-zinc-300');
+            }
+          }
+        });
+
+        renderCurrentWord();
+      }
+
+      function setWpm(newWpm) {
+        const clamped = Math.max(100, Math.min(2000, Math.round(newWpm / 25) * 25));
+        state.wpm = clamped;
+        updateWpmUI();
+        saveProgress();
+      }
+
+      // =========================================================================
+      // 9. PLAYBACK LOOP ENGINE
+      // =========================================================================
+      function scheduleNextWord() {
+        if (!state.isPlaying) return;
+
+        if (state.currentIndex >= state.words.length - 1) {
+          pausePlayback();
+          saveProgress();
+          return;
+        }
+
+        const currentWord = state.words[state.currentIndex];
+        const delay = getWordDelayMs(currentWord, state.wpm, state.smartPauses);
+
+        state.timerId = setTimeout(() => {
+          if (!state.isPlaying) return;
+          state.currentIndex++;
+          renderCurrentWord();
+
+          // Save progress periodically every 25 words
+          if (state.currentIndex % 25 === 0) {
+            saveProgress();
+          }
+
+          scheduleNextWord();
+        }, delay);
+      }
+
+      function startPlayback() {
+        if (state.words.length === 0) return;
+        if (state.currentIndex >= state.words.length - 1) {
+          state.currentIndex = 0;
+          renderCurrentWord();
+        }
+        state.isPlaying = true;
+        el.playIcon.classList.add('hidden');
+        el.pauseIcon.classList.remove('hidden');
+        el.playPauseLabel.textContent = 'Pause';
+        el.resumeBanner.classList.add('hidden');
+        scheduleNextWord();
+      }
+
+      function pausePlayback() {
+        state.isPlaying = false;
+        if (state.timerId) {
+          clearTimeout(state.timerId);
+          state.timerId = null;
+        }
+        el.playIcon.classList.remove('hidden');
+        el.pauseIcon.classList.add('hidden');
+        el.playPauseLabel.textContent = 'Play';
+        saveProgress();
+      }
+
+      function togglePlayback() {
+        if (state.isPlaying) {
+          pausePlayback();
+        } else {
+          startPlayback();
+        }
+      }
+
+      // =========================================================================
+      // 10. DOCUMENT LOADING & PDF EXTRACTION
+      // =========================================================================
+      function loadDocumentText(title, rawText, pageCount = 1) {
+        pausePlayback();
+
+        // Clean whitespace and split into valid word tokens
+        const cleanedWords = rawText
+          .replace(/\s+/g, ' ')
+          .trim()
+          .split(' ')
+          .filter((w) => w.length > 0);
+
+        if (cleanedWords.length === 0) {
+          showStatus('No readable text found in this document.', '', false);
+          return;
+        }
+
+        state.docTitle = title;
+        state.words = cleanedWords;
+        state.pageCount = pageCount;
+        state.docId = computeDocId(title, cleanedWords.length);
+
+        el.docTitle.textContent = title;
+        el.pdfStatsSub.textContent = `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} • ${cleanedWords.length.toLocaleString()} words extracted`;
+
+        buildContextReader();
+
+        // Check for previously saved position
+        const saved = loadSavedProgress(state.docId);
+        if (saved && saved.index > 0 && saved.index < cleanedWords.length - 1) {
+          state.currentIndex = saved.index;
+          if (saved.wpm) state.wpm = saved.wpm;
+          el.resumeText.textContent = `Resumed at word ${(saved.index + 1).toLocaleString()} of ${cleanedWords.length.toLocaleString()} (${Math.round((saved.index / cleanedWords.length) * 100)}%)`;
+          el.resumeBanner.classList.remove('hidden');
+        } else {
+          state.currentIndex = 0;
+          el.resumeBanner.classList.add('hidden');
+        }
+
+        updateWpmUI();
+        renderCurrentWord();
+      }
+
+      function showStatus(message, meta = '', isLoading = true) {
+        el.statusBanner.classList.remove('hidden');
+        el.statusText.textContent = message;
+        el.statusMeta.textContent = meta;
+        if (isLoading) {
+          el.statusSpinner.classList.remove('hidden');
+        } else {
+          el.statusSpinner.classList.add('hidden');
+        }
+      }
+
+      async function handlePdfFile(file) {
+        if (!file || file.type !== 'application/pdf') {
+          showStatus('Please select a valid PDF file.', '', false);
+          return;
+        }
+
+        if (!window.pdfjsLib) {
+          showStatus('PDF.js library failed to load. Check your internet connection.', '', false);
+          return;
+        }
+
+        pausePlayback();
+        showStatus(`Loading "${file.name}"...`, 'Initializing PDF.js', true);
+
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+          const pdf = await loadingTask.promise;
+          const totalPages = pdf.numPages;
+
+          let fullTextParts = [];
+
+          for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+            showStatus(
+              `Extracting text from "${file.name}"...`,
+              `Page ${pageNum} / ${totalPages}`,
+              true
+            );
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageStrings = textContent.items.map((item) => item.str);
+            fullTextParts.push(pageStrings.join(' '));
+          }
+
+          const combinedText = fullTextParts.join(' ');
+          loadDocumentText(file.name, combinedText, totalPages);
+
+          showStatus(
+            `Ready: "${file.name}"`,
+            `${totalPages} pages • ${state.words.length.toLocaleString()} words`,
+            false
+          );
+        } catch (err) {
+          console.error('PDF extraction error:', err);
+          showStatus(`Error reading PDF: ${err.message || 'Corrupted or encrypted file'}`, '', false);
+        }
+      }
+
+      // =========================================================================
+      // 11. EVENT LISTENERS & KEYBOARD SHORTCUTS
+      // =========================================================================
+      el.playPauseBtn.addEventListener('click', togglePlayback);
+      el.reticleClickZone.addEventListener('click', togglePlayback);
+
+      el.restartBtn.addEventListener('click', () => {
+        pausePlayback();
+        state.currentIndex = 0;
+        el.resumeBanner.classList.add('hidden');
+        renderCurrentWord();
+        saveProgress();
+      });
+
+      el.restartFromBannerBtn.addEventListener('click', () => {
+        pausePlayback();
+        state.currentIndex = 0;
+        el.resumeBanner.classList.add('hidden');
+        renderCurrentWord();
+        saveProgress();
+      });
+
+      function stepWords(delta) {
+        pausePlayback();
+        state.currentIndex = Math.max(0, Math.min(state.words.length - 1, state.currentIndex + delta));
+        renderCurrentWord();
+        saveProgress();
+      }
+
+      el.skipBack1Btn.addEventListener('click', () => stepWords(-1));
+      el.skipFwd1Btn.addEventListener('click', () => stepWords(1));
+      el.skipBack10Btn.addEventListener('click', () => stepWords(-10));
+      el.skipFwd10Btn.addEventListener('click', () => stepWords(10));
+
+      // Scrubber drag
+      el.progressScrubber.addEventListener('input', (e) => {
+        pausePlayback();
+        state.currentIndex = parseInt(e.target.value, 10) || 0;
+        renderCurrentWord();
+      });
+
+      el.progressScrubber.addEventListener('change', saveProgress);
+
+      // WPM Controls
+      el.wpmSlider.addEventListener('input', (e) => {
+        setWpm(parseInt(e.target.value, 10));
+      });
+
+      el.wpmDownBtn.addEventListener('click', () => setWpm(state.wpm - 50));
+      el.wpmUpBtn.addEventListener('click', () => setWpm(state.wpm + 50));
+
+      el.presetBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setWpm(parseInt(btn.dataset.wpm, 10));
+        });
+      });
+
+      el.smartPauseToggle.addEventListener('change', (e) => {
+        state.smartPauses = e.target.checked;
+      });
+
+      // Font Size Adjuster
+      const fontClasses = [
+        'text-2xl sm:text-3xl md:text-4xl',
+        'text-3xl sm:text-4xl md:text-5xl',
+        'text-4xl sm:text-5xl md:text-6xl', // default (index 2)
+        'text-5xl sm:text-6xl md:text-7xl',
+        'text-6xl sm:text-7xl md:text-8xl'
+      ];
+      let fontIdx = 2;
+
+      function applyFontSize() {
+        el.rsvpDisplay.className = `rsvp-word-grid tracking-tight ${fontClasses[fontIdx]}`;
+      }
+
+      el.fontDecBtn.addEventListener('click', () => {
+        fontIdx = Math.max(0, fontIdx - 1);
+        applyFontSize();
+      });
+
+      el.fontIncBtn.addEventListener('click', () => {
+        fontIdx = Math.min(fontClasses.length - 1, fontIdx + 1);
+        applyFontSize();
+      });
+
+      // Zen Mode Toggle
+      function toggleZenMode() {
+        state.zenMode = !state.zenMode;
+        document.body.classList.toggle('zen-active', state.zenMode);
+        el.zenBtnLabel.textContent = state.zenMode ? 'Exit Zen' : 'Zen Mode';
+      }
+
+      el.zenToggleBtn.addEventListener('click', toggleZenMode);
+
+      // File Input & Drag-and-Drop
+      el.pdfInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          handlePdfFile(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+
+      el.pdfDropzone.addEventListener('click', () => el.pdfInput.click());
+
+      ['dragenter', 'dragover'].forEach((evtName) => {
+        el.pdfDropzone.addEventListener(evtName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.pdfDropzone.classList.add('border-red-500', 'bg-red-950/10');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach((evtName) => {
+        el.pdfDropzone.addEventListener(evtName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.pdfDropzone.classList.remove('border-red-500', 'bg-red-950/10');
+        });
+      });
+
+      el.pdfDropzone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer?.files;
+        if (files && files[0]) {
+          handlePdfFile(files[0]);
+        }
+      });
+
+      // Paste Text Modal Controls
+      function openPasteModal() {
+        pausePlayback();
+        el.pasteModal.classList.remove('hidden');
+        el.pasteTextarea.focus();
+      }
+      function closePasteModal() {
+        el.pasteModal.classList.add('hidden');
+      }
+
+      el.openPasteModalBtn.addEventListener('click', openPasteModal);
+      el.closePasteModalBtn.addEventListener('click', closePasteModal);
+      el.cancelPasteBtn.addEventListener('click', closePasteModal);
+
+      el.loadSampleBtn.addEventListener('click', () => {
+        el.pasteTextarea.value = SAMPLE_TEXT;
+      });
+
+      el.applyPasteBtn.addEventListener('click', () => {
+        const txt = el.pasteTextarea.value.trim();
+        if (txt) {
+          const previewTitle = txt.slice(0, 28).replace(/\s+/g, ' ') + '...';
+          loadDocumentText(`Pasted: ${previewTitle}`, txt, 1);
+          el.statusBanner.classList.add('hidden');
+          closePasteModal();
+        }
+      });
+
+      // PWA Help Modal Controls
+      el.pwaHelpBtn.addEventListener('click', () => el.pwaModal.classList.remove('hidden'));
+      el.closePwaModalBtn.addEventListener('click', () => el.pwaModal.classList.add('hidden'));
+      el.okPwaModalBtn.addEventListener('click', () => el.pwaModal.classList.add('hidden'));
+
+      // Global Keyboard Shortcuts
+      document.addEventListener('keydown', (e) => {
+        // Ignore shortcuts when typing in textarea or when modal is open
+        if (
+          document.activeElement === el.pasteTextarea ||
+          !el.pasteModal.classList.contains('hidden') ||
+          !el.pwaModal.classList.contains('hidden')
+        ) {
+          if (e.key === 'Escape') {
+            closePasteModal();
+            el.pwaModal.classList.add('hidden');
+          }
+          return;
+        }
+
+        switch (e.code) {
+          case 'Space':
+            e.preventDefault();
+            togglePlayback();
+            break;
+          case 'ArrowLeft':
+            e.preventDefault();
+            stepWords(e.shiftKey ? -10 : -1);
+            break;
+          case 'ArrowRight':
+            e.preventDefault();
+            stepWords(e.shiftKey ? 10 : 1);
+            break;
+          case 'ArrowUp':
+            e.preventDefault();
+            setWpm(state.wpm + 50);
+            break;
+          case 'ArrowDown':
+            e.preventDefault();
+            setWpm(state.wpm - 50);
+            break;
+          case 'KeyR':
+            e.preventDefault();
+            pausePlayback();
+            state.currentIndex = 0;
+            renderCurrentWord();
+            saveProgress();
+            break;
+          case 'KeyF':
+            e.preventDefault();
+            toggleZenMode();
+            break;
+          case 'Escape':
+            if (state.zenMode) {
+              toggleZenMode();
+            }
+            break;
+        }
+      });
+
+      // =========================================================================
+      // 12. INITIALIZE APP WITH SAMPLE TEXT
+      // =========================================================================
+      loadDocumentText('Sample Welcome Guide', SAMPLE_TEXT, 1);
+    })();
   </script>
 </body>
 </html>
